@@ -5,18 +5,13 @@ from sqlalchemy.orm import sessionmaker
 
 # Try multiple possible environment variable names
 DATABASE_URL = (
+    os.environ.get('DATABASE_PUBLIC_URL') or 
     os.environ.get('DATABASE_URL') or 
-    os.environ.get('DATABASE_PUBLIC_URL') or
-    os.environ.get('PGDATABASE_URL') or
-    'postgresql://postgres:postgres@localhost:5432/youtube_downloader'  # fallback (won't work but prevents crash)
+    os.environ.get('PGDATABASE_URL')
 )
 
-# Log which URL we're using (remove this line later if you want)
-print(f"Using DATABASE_URL: {'[SET]' if DATABASE_URL else '[EMPTY]'}")
-
 if not DATABASE_URL:
-    # If still empty, create a dummy engine that doesn't actually connect
-    # This prevents the bot from crashing
+    print("WARNING: No database URL found. Running without database.")
     engine = None
     SessionLocal = None
 else:
@@ -45,9 +40,9 @@ def init_db():
     if engine:
         Base.metadata.create_all(bind=engine)
 
-def register_user(user_id, username=None):
+def register_user(user_id, username=None, first_name=None):  # Added first_name
     if not SessionLocal:
-        return
+        return False
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.user_id == user_id).first()
@@ -55,6 +50,8 @@ def register_user(user_id, username=None):
             user = User(user_id=user_id, username=username)
             db.add(user)
             db.commit()
+            return True
+        return False
     finally:
         db.close()
 
@@ -69,7 +66,6 @@ def update_user_activity(user_id):
         db.close()
 
 def increment_download_count(user_id):
-    # This is just a placeholder - the bot tracks downloads in downloads table
     pass
 
 def log_download(user_id, url, file_size=None):
