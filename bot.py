@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # Инициализация планировщика для фоновых задач
 scheduler = BackgroundScheduler()
 scheduler.add_job(cleanup_expired_files, 'interval', minutes=10)
-scheduler.add_job(cleanup_local_files, 'interval', minutes=30)
+scheduler.add_job(lambda: cleanup_local_files(None), 'interval', minutes=30)
 scheduler.start()
 
 # Словарь для хранения состояний пользователей
