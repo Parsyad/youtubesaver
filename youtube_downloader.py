@@ -1,81 +1,99 @@
+import yt_dlp
 import os
 import re
-from pytube import YouTube
-from config import DOWNLOAD_DIR, TEMP_DIR
 
 def is_valid_youtube_url(url):
-    """Проверка, является ли ссылка допустимой ссылкой YouTube"""
-    youtube_regex = r'(https?://)?(www\.)?(youtube|youtu|youtube-nocookie)\.(com|be)/(watch\?v=|embed/|v/|.+\?v=)?([^&=%\?]{11})'
-    return bool(re.match(youtube_regex, url))
+    """Check if URL is a valid YouTube link"""
+    youtube_regex = (
+        r'(https?://)?(www\.)?(youtube|youtu|youtube-nocookie)\.(com|be)/'
+        r'(watch\?v=|embed/|v/|.+\?v=)?([^&=%\?]{11})'
+    )
+    return re.match(youtube_regex, url) is not None
 
 def get_video_info(url):
-    """Получение информации о видео"""
+    """Extract video information using yt-dlp"""
+    ydl_opts = {
+        'quiet': True,
+        'no_warnings': True,
+        'extract_flat': False,
+    }
+    
     try:
-        yt = YouTube(url)
-        
-        # Собираем доступные разрешения
-        resolutions = []
-        
-        # Получаем доступные разрешения для видео
-        video_streams = yt.streams.filter(progressive=True).order_by('resolution')
-        for stream in video_streams:
-            if stream.resolution:
-                resolution = stream.resolution.replace('p', '')
-                if resolution in ['480', '720', '1080'] and resolution not in resolutions:
-                    resolutions.append(resolution)
-        
-        # Проверяем, есть ли аудиопоток
-        audio_stream = yt.streams.filter(only_audio=True).first()
-        has_audio = audio_stream is not None
-        
-        return {
-            'title': yt.title,
-            'author': yt.author,
-            'length': yt.length,
-            'thumbnail': yt.thumbnail_url,
-            'resolutions': resolutions,
-            'has_audio': has_audio
-        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            
+            # Extract available resolutions
+            resolutions = set()
+            formats = info.get('formats', [])
+            for f in formats:
+                height = f.get('height')
+                if height and height <= 1080:  # Limit to 1080p max
+                    resolutions.add(height)
+            
+            # Check if audio-only formats available
+            has_audio = any(f.get('acodec') != 'none' for f in formats)
+            
+            return {
+                'title': info.get('title', 'Unknown'),
+                'author': info.get('uploader', 'Unknown'),
+                'length': info.get('duration', 0),
+                'resolutions': sorted(resolutions),
+                'has_audio': has_audio
+            }
     except Exception as e:
-        print(f"Ошибка при получении информации о видео: {e}")
+        print(f"Error getting video info: {e}")
         return None
 
-def download_video(url, resolution='720'):
-    """Загрузка видео с YouTube"""
-    try:
-        yt = YouTube(url)
-        
-        # Создаем безопасное имя файла
-        safe_title = "".join([c for c in yt.title if c.isalpha() or c.isdigit() or c==' ']).rstrip()
-        file_path = os.path.join(DOWNLOAD_DIR, f"{safe_title}_{resolution}p.mp4")
-        
-        # Загружаем видео нужного разрешения
-        if resolution == 'audio':
-            # Загружаем только аудио в формате mp3
-            stream = yt.streams.filter(only_audio=True).first()
-            out_file = stream.download(output_path=DOWNLOAD_DIR, filename=f"{safe_title}.mp3")
-            file_path = out_file
-        else:
-            # Загружаем видео с выбранным разрешением
-            stream = yt.streams.filter(res=f"{resolution}p", progressive=True).first()
-            
-            # Если нет прогрессивного потока с нужным разрешением, пробуем найти наиболее близкое
-            if not stream:
-                stream = yt.streams.filter(progressive=True).order_by('resolution').last()
-            
-            out_file = stream.download(output_path=DOWNLOAD_DIR, filename=f"{safe_title}_{resolution}p.mp4")
-            file_path = out_file
-        
-        # Получаем размер файла
-        file_size = os.path.getsize(file_path) / (1024 * 1024)  # в МБ
-        
-        return {
-            'file_path': file_path,
-            'file_name': os.path.basename(file_path),
-            'file_size': file_size,
-            'format': 'mp3' if resolution == 'audio' else 'mp4'
-        }
+def download_video(url, quality):
+    """Download video using yt-dlp"""
     
+    # Map quality selection to format code
+    if quality == 'audio':
+        format_spec = 'bestaudio/best'
+        output_template = 'downloads/%(title)s.%(ext)s'
+    else:
+        format_spec = f'bestvideo[height<={quality}]+bestaudio/best[height<={quality}]'
+        output_template = 'downloads/%(title)s_%(height)sp.%(ext)s'
+    
+    # Ensure downloads directory exists
+    os.makedirs('downloads', exist_ok=True)
+    
+    ydl_opts = {
+        'format': format_spec,
+        'outtmpl': output_template,
+        'quiet': True,
+        'no_warnings': True,
+        'merge_output_format': 'mp4' if quality != 'audio' else None,
+    }
+    
+    # For audio downloads, add post-processor
+    if quality == 'audio':
+        ydl_opts['postprocessors'] = [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }]
+    
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            
+            # Get the downloaded file path
+            if quality == 'audio':
+                filename = ydl.prepare_filename(info).replace('.webm', '.mp3').replace('.m4a', '.mp3')
+                if not os.path.exists(filename):
+                    filename = ydl.prepare_filename(info) + '.mp3'
+            else:
+                filename = ydl.prepare_filename(info)
+            
+            file_size = os.path.getsize(filename) / (1024 * 1024)  # Size in MB
+            
+            return {
+                'file_path': filename,
+                'file_name': os.path.basename(filename),
+                'file_size': file_size,
+                'format': quality
+            }
     except Exception as e:
-        print(f"Ошибка при загрузке видео: {e}")
-        return None 
+        print(f"Download error: {e}")
+        return None
