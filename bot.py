@@ -262,4 +262,8 @@ def main() -> None:
     application.run_polling()
 
 if __name__ == '__main__':
-    main() 
+    
+    def main():
+    # Initialize database tables
+    from database import init_db
+    init_db() main() 
