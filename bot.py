@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 # Инициализация планировщика для фоновых задач
 scheduler = BackgroundScheduler()
-scheduler.add_job(cleanup_expired_files, 'interval', minutes=10)
+scheduler.add_job(lambda: cleanup_expired_files(), 'interval', hours=1)
 scheduler.add_job(lambda: cleanup_local_files(None), 'interval', minutes=30)
 scheduler.start()
 
