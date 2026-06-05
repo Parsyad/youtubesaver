@@ -7,7 +7,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQu
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from config import TELEGRAM_BOT_TOKEN, ADMIN_USER_ID
-from database import register_user, update_user_activity, increment_download_count, log_download, get_stats
+from database import register_user, update_user_activity, increment_download_count, log_download, get_stats, init_db
 from youtube_downloader import is_valid_youtube_url, get_video_info, download_video
 from mega_handler import upload_to_mega, cleanup_expired_files, cleanup_local_files
 
@@ -17,6 +17,9 @@ logging.basicConfig(
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+# Initialize database tables WHEN THE BOT STARTS
+init_db()
 
 # Инициализация планировщика для фоновых задач
 scheduler = BackgroundScheduler()
@@ -251,7 +254,7 @@ def main() -> None:
     
     # Обработчик URL YouTube
     application.add_handler(MessageHandler(
-        filters.TEXT & ~filters.COMMAND & filters.Entity("url"),
+        filters.TEXT & ~filters.COMMAND,
         handle_youtube_url
     ))
     
@@ -262,8 +265,4 @@ def main() -> None:
     application.run_polling()
 
 if __name__ == '__main__':
-    
-    def main():
-    # Initialize database tables
-    from database import init_db
-    init_db() main() 
+    main()
