@@ -1,112 +1,49 @@
+import subprocess
 import os
-import uuid
-from datetime import datetime, timedelta
-import shutil
-from mega import Mega
-from config import MEGA_EMAIL, MEGA_PASSWORD, DOWNLOAD_DIR, TEMP_DIR, LINK_EXPIRATION_TIME
-from database import register_mega_file, get_expired_mega_files, delete_mega_file_record
+import time
 
-# Инициализация директорий, если они не существуют
-os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-os.makedirs(TEMP_DIR, exist_ok=True)
-
-# Создаем экземпляр MEGA
-mega = Mega()
-
-# Функция для входа в MEGA
-def login_to_mega():
+def upload_to_mega(file_path, mega_email, mega_password):
+    """
+    Upload a file to MEGA using mega-cli command line tool
+    """
     try:
-        m = mega.login(MEGA_EMAIL, MEGA_PASSWORD)
-        return m
+        # Create a temporary folder for uploaded files
+        mega_folder = "/YouTubeDownloads"
+        
+        # Login and upload using mega-cli
+        cmd = f'mega-login {mega_email} {mega_password} && mega-mkdir {mega_folder} 2>/dev/null || true && mega-put "{file_path}" {mega_folder}/ && mega-export -a "{mega_folder}/$(basename {file_path})"'
+        
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
+        
+        # Extract the public link from output
+        output = result.stdout
+        # Look for a line with the export link (mega.nz/#F! or mega.nz/file/)
+        for line in output.split('\n'):
+            if 'mega.nz/' in line:
+                return line.strip()
+        
+        # If no link found, login again and try export
+        export_cmd = f'mega-login {mega_email} {mega_password} && mega-export -a "{mega_folder}/$(basename {file_path})"'
+        export_result = subprocess.run(export_cmd, shell=True, capture_output=True, text=True, timeout=60)
+        
+        for line in export_result.stdout.split('\n'):
+            if 'mega.nz/' in line:
+                return line.strip()
+                
+        return None
+        
     except Exception as e:
-        print(f"Ошибка при входе в MEGA: {e}")
+        print(f"Upload error: {e}")
         return None
 
-# Функция для загрузки файла на MEGA
-def upload_to_mega(file_path, file_name):
-    try:
-        m = login_to_mega()
-        if not m:
-            return None
-        
-        # Создаем папку для временных файлов, если она не существует
-        folder_name = "youtube_downloads_temp"
-        folders = m.get_files()
-        
-        # Проверяем, существует ли папка
-        folder_exists = False
-        folder_id = None
-        
-        for item_id, item_data in folders.items():
-            if item_data['a'] and item_data['t'] == 1 and item_data['a']['n'] == folder_name:
-                folder_exists = True
-                folder_id = item_id
-                break
-        
-        # Если папка не существует, создаем ее
-        if not folder_exists:
-            folder_id = m.create_folder(folder_name)
-        
-        # Загружаем файл в папку
-        file = m.upload(file_path, dest=folder_id)
-        
-        # Получаем ссылку на файл
-        link = m.get_upload_link(file)
-        
-        # Вычисляем время истечения
-        expiration_time = datetime.now() + timedelta(seconds=LINK_EXPIRATION_TIME)
-        
-        # Регистрируем файл в базе данных
-        register_mega_file(file, file_path, link, expiration_time)
-        
-        return {
-            "file_id": file,
-            "link": link,
-            "expiration_time": expiration_time
-        }
-    
-    except Exception as e:
-        print(f"Ошибка при загрузке на MEGA: {e}")
-        return None
-
-# Функция для удаления файлов с истекшим сроком действия
 def cleanup_expired_files():
-    try:
-        m = login_to_mega()
-        if not m:
-            return
-        
-        # Получаем просроченные файлы из базы данных
-        expired_files = get_expired_mega_files()
-        
-        for file in expired_files:
-            try:
-                # Удаляем файл из MEGA
-                m.delete(file.file_id)
-                
-                # Удаляем запись из базы данных
-                delete_mega_file_record(file.file_id)
-                
-                # Если есть локальный файл, удаляем его
-                if os.path.exists(file.path):
-                    os.remove(file.path)
-            except Exception as e:
-                print(f"Ошибка при удалении файла {file.file_id}: {e}")
-    
-    except Exception as e:
-        print(f"Ошибка при очистке файлов: {e}")
+    """Placeholder function - mega-cli doesn't auto-cleanup, but you can manually manage files"""
+    pass
 
-# Функция для очистки временных локальных файлов
-def cleanup_local_files():
+def cleanup_local_files(file_path):
+    """Remove local file after upload"""
     try:
-        # Очищаем директории загрузок и временных файлов
-        for dir_path in [DOWNLOAD_DIR, TEMP_DIR]:
-            if os.path.exists(dir_path):
-                for item in os.listdir(dir_path):
-                    item_path = os.path.join(dir_path, item)
-                    if os.path.isfile(item_path):
-                        os.remove(item_path)
-                    elif os.path.isdir(item_path):
-                        shutil.rmtree(item_path)
+        if os.path.exists(file_path):
+            os.remove(file_path)
     except Exception as e:
-        print(f"Ошибка при очистке локальных файлов: {e}") 
+        print(f"Cleanup error: {e}")
