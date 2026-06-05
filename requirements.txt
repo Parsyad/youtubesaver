@@ -1,5 +1,5 @@
 python-telegram-bot==20.7
-pytube==15.0.0
+yt-dlp>=2025.06.25
 python-dotenv==1.0.0
 apscheduler==3.10.4
 psycopg2-binary==2.9.9
