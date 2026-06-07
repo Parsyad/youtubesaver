@@ -15,6 +15,7 @@ def get_video_info(url):
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
+        'cookiefile': 'cookies.txt',  # Add this line
         'extract_flat': 'in_playlist',  # Faster extraction
     }
     
@@ -58,7 +59,7 @@ def get_video_info(url):
 
 def download_video(url, quality):
     """Download video using yt-dlp"""
-    
+    'cookiefile': 'cookies.txt',  # Add this line
     # Ensure downloads directory exists
     os.makedirs('downloads', exist_ok=True)
     
