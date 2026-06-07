@@ -15,15 +15,14 @@ def get_video_info(url):
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
-        'cookiefile': 'cookies.txt',  # Add this line
-        'extract_flat': 'in_playlist',  # Faster extraction
+        'extract_flat': 'in_playlist',
+        'cookiefile': 'cookies.txt',  # Add cookies file
     }
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             
-            # Check if video is available
             if info is None:
                 return None
             
@@ -35,16 +34,14 @@ def get_video_info(url):
                 if height and height <= 1080:
                     resolutions.add(height)
             
-            # If no video formats found, try to get from requested_formats
             if not resolutions and 'requested_formats' in info:
                 for f in info['requested_formats']:
                     height = f.get('height')
                     if height and height <= 1080:
                         resolutions.add(height)
             
-            # If still no resolutions, add default
             if not resolutions:
-                resolutions = [360, 720]  # Fallback resolutions
+                resolutions = [360, 720]
             
             return {
                 'title': info.get('title', 'Unknown'),
@@ -59,7 +56,7 @@ def get_video_info(url):
 
 def download_video(url, quality):
     """Download video using yt-dlp"""
-    'cookiefile': 'cookies.txt',  # Add this line
+    
     # Ensure downloads directory exists
     os.makedirs('downloads', exist_ok=True)
     
@@ -71,6 +68,7 @@ def download_video(url, quality):
             'outtmpl': output_template,
             'quiet': True,
             'no_warnings': True,
+            'cookiefile': 'cookies.txt',  # Add cookies file
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
@@ -85,6 +83,7 @@ def download_video(url, quality):
             'outtmpl': output_template,
             'quiet': True,
             'no_warnings': True,
+            'cookiefile': 'cookies.txt',  # Add cookies file
             'merge_output_format': 'mp4',
         }
     
@@ -95,7 +94,6 @@ def download_video(url, quality):
             # Get the downloaded file path
             if quality == 'audio':
                 filename = ydl.prepare_filename(info).replace('.webm', '.mp3').replace('.m4a', '.mp3')
-                # Handle different file extensions
                 if not os.path.exists(filename):
                     base = ydl.prepare_filename(info)
                     for ext in ['.mp3', '.m4a', '.webm']:
@@ -106,7 +104,6 @@ def download_video(url, quality):
             else:
                 filename = ydl.prepare_filename(info)
                 if not os.path.exists(filename):
-                    # Try with mp4 extension
                     test_file = filename + '.mp4'
                     if os.path.exists(test_file):
                         filename = test_file
