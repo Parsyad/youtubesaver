@@ -27,9 +27,6 @@ scheduler.add_job(lambda: cleanup_expired_files(), 'interval', hours=1)
 scheduler.add_job(lambda: cleanup_local_files(None), 'interval', minutes=30)
 scheduler.start()
 
-# Dictionary for user states
-user_states = {}
-
 # /start command handler
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
@@ -128,9 +125,6 @@ async def handle_youtube_url(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
     
     # Save URL in user context
-if context.user_data is None:
-    context.user_data.clear()
-    
     context.user_data['youtube_url'] = url
     context.user_data['video_title'] = video_info['title']
     
