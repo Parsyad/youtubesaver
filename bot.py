@@ -128,8 +128,8 @@ async def handle_youtube_url(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
     
     # Save URL in user context
-    if not context.user_data:
-        context.user_data = {}
+if context.user_data is None:
+    context.user_data.clear()
     
     context.user_data['youtube_url'] = url
     context.user_data['video_title'] = video_info['title']
