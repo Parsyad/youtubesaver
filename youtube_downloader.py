@@ -16,7 +16,8 @@ def get_video_info(url):
         'quiet': True,
         'no_warnings': True,
         'extract_flat': 'in_playlist',
-        'cookiefile': 'cookies.txt',  # Add cookies file
+        'geo_bypass': True,
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     }
     
     try:
@@ -26,19 +27,12 @@ def get_video_info(url):
             if info is None:
                 return None
             
-            # Extract available resolutions
             resolutions = set()
             formats = info.get('formats', [])
             for f in formats:
                 height = f.get('height')
                 if height and height <= 1080:
                     resolutions.add(height)
-            
-            if not resolutions and 'requested_formats' in info:
-                for f in info['requested_formats']:
-                    height = f.get('height')
-                    if height and height <= 1080:
-                        resolutions.add(height)
             
             if not resolutions:
                 resolutions = [360, 720]
@@ -57,7 +51,6 @@ def get_video_info(url):
 def download_video(url, quality):
     """Download video using yt-dlp"""
     
-    # Ensure downloads directory exists
     os.makedirs('downloads', exist_ok=True)
     
     if quality == 'audio':
@@ -68,7 +61,8 @@ def download_video(url, quality):
             'outtmpl': output_template,
             'quiet': True,
             'no_warnings': True,
-            'cookiefile': 'cookies.txt',  # Add cookies file
+            'geo_bypass': True,
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
@@ -83,7 +77,8 @@ def download_video(url, quality):
             'outtmpl': output_template,
             'quiet': True,
             'no_warnings': True,
-            'cookiefile': 'cookies.txt',  # Add cookies file
+            'geo_bypass': True,
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'merge_output_format': 'mp4',
         }
     
@@ -91,7 +86,6 @@ def download_video(url, quality):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             
-            # Get the downloaded file path
             if quality == 'audio':
                 filename = ydl.prepare_filename(info).replace('.webm', '.mp3').replace('.m4a', '.mp3')
                 if not os.path.exists(filename):
